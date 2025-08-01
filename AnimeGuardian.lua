@@ -1,19 +1,36 @@
--- Tower Defense GUI Script by @hoanganh
--- Hỗ trợ: Join Map, Raid, Portal, Challenge, Record/Play Macro, Webhook
+-- Anime Guardian Auto GUI by @hoanganhvuh (Nousigi Clone)
+-- Tính năng: Auto Join, Auto Play, Replay, Webhook, đặt 4 unit theo map
 
--- Tùy chỉnh webhook ở đây
-getgenv().Webhook_URL = "https://your-webhook-link"
+-- Tùy chỉnh Webhook tại đây
+getgenv().Webhook_URL = "https://discord.com/api/webhooks/..."
 
--- Auto Lib
+-- Tọa độ unit theo từng map (ví dụ)
+getgenv().MapUnitPositions = {
+    ["DemonVillage"] = {
+        Vector3.new(10, 3, 15),
+        Vector3.new(12, 3, 18),
+        Vector3.new(14, 3, 20),
+        Vector3.new(16, 3, 22)
+    },
+    ["FrozenForest"] = {
+        Vector3.new(5, 3, -10),
+        Vector3.new(7, 3, -12),
+        Vector3.new(9, 3, -14),
+        Vector3.new(11, 3, -16)
+    }
+}
+
+-- Load GUI
 loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 local OrionLib = OrionLib
-local Window = OrionLib:MakeWindow({Name = "TD GUI by @hoanganh", HidePremium = false, SaveConfig = false, IntroEnabled = false})
+local Window = OrionLib:MakeWindow({Name = "Anime Guardian GUI", HidePremium = false, SaveConfig = false, IntroEnabled = false})
 
--- Lưu Macro
-getgenv().MacroSteps = {}
-getgenv().Recording = false
+-- Trạng thái
+getgenv().AutoJoin = false
+getgenv().AutoPlay = false
+getgenv().AutoReplay = false
 
--- Function gửi webhook
+-- Gửi Webhook
 function SendWebhook(status, reward)
     local req = (syn and syn.request) or (http and http.request) or (http_request)
     if not req then return end
@@ -26,7 +43,7 @@ function SendWebhook(status, reward)
                 {name = "Phần thưởng", value = reward or "Không rõ", inline = true},
                 {name = "Thời gian", value = os.date("%X"), inline = true}
             }}
-        }
+        }}
     }
 
     req({
@@ -37,58 +54,49 @@ function SendWebhook(status, reward)
     })
 end
 
--- Tab Main
-local MainTab = Window:MakeTab({Name = "Main", Icon = "rbxassetid://4483345998", PremiumOnly = false})
-MainTab:AddButton({Name = "Join Map", Callback = function()
-    -- Tùy chỉnh hành động vào map
-    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, workspace:FindFirstChild("JoinPortal").Part, 0)
-end})
-MainTab:AddButton({Name = "Raid", Callback = function()
-    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, workspace:FindFirstChild("RaidPortal").Part, 0)
-end})
-MainTab:AddButton({Name = "Portal", Callback = function()
-    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, workspace:FindFirstChild("SpecialPortal").Part, 0)
-end})
-MainTab:AddButton({Name = "Challenge", Callback = function()
-    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, workspace:FindFirstChild("ChallengePortal").Part, 0)
-end})
+-- Đặt Unit theo map
+function PlaceUnitsForMap(mapName)
+    local positions = getgenv().MapUnitPositions[mapName]
+    if not positions then return end
+    local player = game.Players.LocalPlayer
 
--- Tab Macro
-local MacroTab = Window:MakeTab({Name = "Macro", Icon = "rbxassetid://4483345998", PremiumOnly = false})
-MacroTab:AddButton({Name = "Start Recording", Callback = function()
-    getgenv().MacroSteps = {}
-    getgenv().Recording = true
-    OrionLib:MakeNotification({Name = "Macro", Content = "Bắt đầu ghi macro", Time = 3})
-end})
-MacroTab:AddButton({Name = "Stop Recording", Callback = function()
-    getgenv().Recording = false
-    OrionLib:MakeNotification({Name = "Macro", Content = "Dừng ghi macro", Time = 3})
-end})
-MacroTab:AddButton({Name = "Play Macro", Callback = function()
-    OrionLib:MakeNotification({Name = "Macro", Content = "Đang phát macro", Time = 3})
-    for _, step in ipairs(getgenv().MacroSteps) do
-        wait(step.delay)
+    for _, pos in ipairs(positions) do
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+        wait(0.5)
         mouse1click()
+        wait(1)
     end
-end})
+end
 
--- Ghi Macro bằng input
-local UserInputService = game:GetService("UserInputService")
-local lastClickTime = tick()
-UserInputService.InputBegan:Connect(function(input)
-    if getgenv().Recording and input.UserInputType == Enum.UserInputType.MouseButton1 then
-        table.insert(getgenv().MacroSteps, {
-            delay = tick() - lastClickTime
-        })
-        lastClickTime = tick()
-    end
-end)
+-- Tabs
+local Main = Window:MakeTab({Name = "Auto", Icon = "", PremiumOnly = false})
+Main:AddToggle({
+    Name = "Auto Join Map",
+    Default = false,
+    Callback = function(v) getgenv().AutoJoin = v end
+})
+Main:AddToggle({
+    Name = "Auto Play (Đặt unit + wave)",
+    Default = false,
+    Callback = function(v) getgenv().AutoPlay = v end
+})
+Main:AddToggle({
+    Name = "Auto Replay",
+    Default = false,
+    Callback = function(v) getgenv().AutoReplay = v end
+})
 
--- Tab Webhook test
 local WebhookTab = Window:MakeTab({Name = "Webhook", Icon = "", PremiumOnly = false})
-WebhookTab:AddButton({Name = "Gửi thử Webhook (Thắng)", Callback = function()
-    SendWebhook("Thắng", "150 Gems + 500 Coins")
-end})
+WebhookTab:AddTextbox({
+    Name = "Webhook URL",
+    Default = "",
+    Callback = function(v) getgenv().Webhook_URL = v end
+})
+WebhookTab:AddButton({
+    Name = "Test Webhook",
+    Callback = function()
+        SendWebhook("Thắng", "150 Gems")
+    end
+})
 
--- UI
 OrionLib:Init()
