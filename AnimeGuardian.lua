@@ -1,37 +1,28 @@
--- Anime Guardian Auto GUI by @hoanganhvuh (Nousigi Clone)
+-- ✅ Anime Guardian Auto GUI FIXED by @hoanganhvuh (Nousigi Clone)
 -- Tính năng: Auto Join, Auto Play, Replay, Webhook, đặt 4 unit theo map
 
--- Tùy chỉnh Webhook tại đây
-getgenv().Webhook_URL = "https://discord.com/api/webhooks/..."
+-- OrionLib GUI loader
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+local Window = OrionLib:MakeWindow({Name = "Anime Guardian GUI", HidePremium = false, SaveConfig = false, IntroEnabled = false})
 
--- Tọa độ unit theo từng map (ví dụ)
+-- Các biến trạng thái
+getgenv().AutoJoin = false
+getgenv().AutoPlay = false
+getgenv().AutoReplay = false
+getgenv().Webhook_URL = ""
+
+-- Vị trí unit theo từng map
 getgenv().MapUnitPositions = {
     ["DemonVillage"] = {
         Vector3.new(10, 3, 15),
         Vector3.new(12, 3, 18),
         Vector3.new(14, 3, 20),
         Vector3.new(16, 3, 22)
-    },
-    ["FrozenForest"] = {
-        Vector3.new(5, 3, -10),
-        Vector3.new(7, 3, -12),
-        Vector3.new(9, 3, -14),
-        Vector3.new(11, 3, -16)
     }
 }
 
--- Load GUI
-loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
-local OrionLib = OrionLib
-local Window = OrionLib:MakeWindow({Name = "Anime Guardian GUI", HidePremium = false, SaveConfig = false, IntroEnabled = false})
-
--- Trạng thái
-getgenv().AutoJoin = false
-getgenv().AutoPlay = false
-getgenv().AutoReplay = false
-
--- Gửi Webhook
-function SendWebhook(status, reward)
+-- Gửi webhook (Synapse/KRNL supported)
+local function SendWebhook(status, reward)
     local req = (syn and syn.request) or (http and http.request) or (http_request)
     if not req then return end
 
@@ -42,7 +33,7 @@ function SendWebhook(status, reward)
             ["fields"] = {
                 {name = "Phần thưởng", value = reward or "Không rõ", inline = true},
                 {name = "Thời gian", value = os.date("%X"), inline = true}
-            }}
+            }
         }}
     }
 
@@ -54,33 +45,48 @@ function SendWebhook(status, reward)
     })
 end
 
--- Đặt Unit theo map
-function PlaceUnitsForMap(mapName)
+-- Auto đặt unit (đứng và click)
+local function PlaceUnitsForMap(mapName)
     local positions = getgenv().MapUnitPositions[mapName]
     if not positions then return end
+
     local player = game.Players.LocalPlayer
+    local vim = game:GetService("VirtualInputManager")
 
     for _, pos in ipairs(positions) do
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
         wait(0.5)
-        mouse1click()
-        wait(1)
+        vim:SendMouseButtonEvent(500, 500, 0, true, game, 1)
+        vim:SendMouseButtonEvent(500, 500, 0, false, game, 1)
+        wait(0.5)
     end
 end
 
--- Tabs
-local Main = Window:MakeTab({Name = "Auto", Icon = "", PremiumOnly = false})
-Main:AddToggle({
+-- Auto Play Loop
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if getgenv().AutoPlay then
+            local mapName = "DemonVillage"
+            PlaceUnitsForMap(mapName)
+            -- TODO: start wave logic here (nếu cần)
+        end
+    end
+end)
+
+-- GUI Tabs
+local AutoTab = Window:MakeTab({Name = "Auto", Icon = "", PremiumOnly = false})
+AutoTab:AddToggle({
     Name = "Auto Join Map",
     Default = false,
     Callback = function(v) getgenv().AutoJoin = v end
 })
-Main:AddToggle({
-    Name = "Auto Play (Đặt unit + wave)",
+AutoTab:AddToggle({
+    Name = "Auto Play (Đặt unit)",
     Default = false,
     Callback = function(v) getgenv().AutoPlay = v end
 })
-Main:AddToggle({
+AutoTab:AddToggle({
     Name = "Auto Replay",
     Default = false,
     Callback = function(v) getgenv().AutoReplay = v end
